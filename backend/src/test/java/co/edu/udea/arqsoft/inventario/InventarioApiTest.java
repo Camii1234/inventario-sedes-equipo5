@@ -19,7 +19,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.cache.CacheManager;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +49,15 @@ class InventarioApiTest {
 
     @Autowired
     ObjectMapper json;
+
+    @Autowired
+    CacheManager caches;
+
+    /** Cada prueba revierte su transacción, así que la caché no debe conservar páginas de otra prueba. */
+    @BeforeEach
+    void limpiarCache() {
+        caches.getCacheNames().forEach(n -> caches.getCache(n).clear());
+    }
 
     private static MockHttpServletRequestBuilder v1(MockHttpServletRequestBuilder builder) {
         return builder.header(V, "1");
@@ -82,7 +93,7 @@ class InventarioApiTest {
                     .andExpect(jsonPath("$.totalProductos").value(3))
                     .andExpect(jsonPath("$.productos[*].sku", contains("ACE-001", "AZU-001", "LEC-001")))
                     .andExpect(jsonPath("$.productos[*].sedeId", everyItem(is(1))))
-                    .andExpect(jsonPath("$._links.self.href", endsWith("/api/inventario?sedeId=1")))
+                    .andExpect(jsonPath("$._links.self.href", endsWith("/api/inventario?sedeId=1&page=0&size=10")))
                     .andExpect(jsonPath("$.productos[0]._links.self.href", containsString("/api/productos/")));
         }
 
@@ -290,7 +301,7 @@ class InventarioApiTest {
             mvc.perform(v1(get("/api/inventario").param("sedeId", "1"))
                             .header("X-Forwarded-Host", "localhost:3000")
                             .header("X-Forwarded-Proto", "http"))
-                    .andExpect(jsonPath("$._links.self.href").value("http://localhost:3000/api/inventario?sedeId=1"));
+                    .andExpect(jsonPath("$._links.self.href").value("http://localhost:3000/api/inventario?sedeId=1&page=0&size=10"));
         }
     }
 
@@ -338,6 +349,54 @@ class InventarioApiTest {
                     .andExpect(jsonPath("$.paths['/api/inventario'].get.parameters[*].name", hasItem("X-API-Version")))
                     .andExpect(jsonPath("$.paths['/api/productos'].post.parameters[*].name", hasItem("X-API-Version")));
             mvc.perform(get("/swagger-ui/index.html")).andExpect(status().isOk());
+        }
+    }
+
+    @Nested
+    @DisplayName("14. Paginación y caché")
+    class PaginacionYCache {
+
+        @Test
+        @DisplayName("page y size dividen el inventario y los enlaces first/prev/next/last navegan entre páginas")
+        void paginacion() throws Exception {
+            MvcResult r = mvc.perform(v1(get("/api/inventario").param("sedeId", "1").param("page", "0").param("size", "2")))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.productos[*].sku", contains("ACE-001", "AZU-001")))
+                    .andExpect(jsonPath("$.totalProductos").value(3))
+                    .andExpect(jsonPath("$.totalUnidades").value(125))
+                    .andExpect(jsonPath("$.pagina.numero").value(0))
+                    .andExpect(jsonPath("$.pagina.tamano").value(2))
+                    .andExpect(jsonPath("$.pagina.totalPaginas").value(2))
+                    .andExpect(jsonPath("$._links.prev").doesNotExist())
+                    .andExpect(jsonPath("$._links.last.href", endsWith("page=1&size=2")))
+                    .andReturn();
+            String next = leer(r).at("/_links/next/href").asText();
+            mvc.perform(v1(get(next)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.productos[*].sku", contains("LEC-001")))
+                    .andExpect(jsonPath("$._links.next").doesNotExist())
+                    .andExpect(jsonPath("$._links.prev.href", endsWith("page=0&size=2")));
+        }
+
+        @Test
+        @DisplayName("400 si page es negativo o size está fuera de 1..100")
+        void parametrosInvalidos() throws Exception {
+            for (String[] p : new String[][] {{"page", "-1"}, {"size", "0"}, {"size", "101"}, {"size", "x"}}) {
+                mvc.perform(v1(get("/api/inventario").param("sedeId", "1").param(p[0], p[1])))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.codigo").value("PARAMETRO_INVALIDO"));
+            }
+        }
+
+        @Test
+        @DisplayName("La segunda consulta sale de la caché (X-Cache: HIT) y un registro la invalida")
+        void cache() throws Exception {
+            mvc.perform(v1(get("/api/inventario").param("sedeId", "2"))).andExpect(header().string("X-Cache", "MISS"));
+            mvc.perform(v1(get("/api/inventario").param("sedeId", "2"))).andExpect(header().string("X-Cache", "HIT"));
+            assertThat(crear(2, "CCH-001", "Producto caché", 4).getResponse().getStatus()).isEqualTo(201);
+            mvc.perform(v1(get("/api/inventario").param("sedeId", "2")))
+                    .andExpect(header().string("X-Cache", "MISS"))
+                    .andExpect(jsonPath("$.productos[?(@.sku=='CCH-001')].stock", contains(4)));
         }
     }
 }

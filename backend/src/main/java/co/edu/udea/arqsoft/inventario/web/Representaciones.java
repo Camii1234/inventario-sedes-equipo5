@@ -10,8 +10,9 @@ import co.edu.udea.arqsoft.inventario.dto.AlmacenesModel;
 import co.edu.udea.arqsoft.inventario.dto.InventarioModel;
 import co.edu.udea.arqsoft.inventario.dto.ProductoModel;
 import co.edu.udea.arqsoft.inventario.dto.SedeResumen;
-import co.edu.udea.arqsoft.inventario.service.InventarioService.InventarioSede;
+import co.edu.udea.arqsoft.inventario.service.InventarioPagina;
 import java.util.List;
+import org.springframework.hateoas.IanaLinkRelations;
 import org.springframework.hateoas.Link;
 import org.springframework.stereotype.Component;
 
@@ -36,11 +37,27 @@ public class Representaciones {
         return modelo;
     }
 
-    public InventarioModel inventario(InventarioSede inventario) {
-        Long sedeId = inventario.almacen().getId();
-        List<ProductoModel> productos = inventario.productos().stream().map(this::productoEnInventario).toList();
-        InventarioModel modelo = new InventarioModel(SedeResumen.de(inventario.almacen()), productos);
-        modelo.add(enlaceInventario(sedeId).withSelfRel());
+    /** Página de inventario con enlaces self, first, prev, next y last (HATEOAS de paginación). */
+    public InventarioModel inventario(InventarioPagina inv) {
+        Long sedeId = inv.sedeId();
+        List<ProductoModel> productos = inv.productos().stream().map(p -> {
+            ProductoModel m = new ProductoModel(p.id(), p.sku(), p.nombre(), p.stock(), sedeId, inv.sedeNombre(), p.creadoEn());
+            m.add(enlaceProducto(p.id()).withSelfRel());
+            return m;
+        }).toList();
+        InventarioModel modelo = new InventarioModel(new SedeResumen(sedeId, inv.sedeNombre(), inv.sedeCiudad()),
+                inv.totalProductos(), inv.totalUnidades(),
+                new InventarioModel.Pagina(inv.pagina(), inv.tamano(), inv.totalProductos(), inv.totalPaginas()), productos);
+        int ultima = Math.max(inv.totalPaginas() - 1, 0);
+        modelo.add(enlacePagina(sedeId, inv.pagina(), inv.tamano()).withSelfRel());
+        modelo.add(enlacePagina(sedeId, 0, inv.tamano()).withRel(IanaLinkRelations.FIRST));
+        if (inv.pagina() > 0) {
+            modelo.add(enlacePagina(sedeId, Math.min(inv.pagina() - 1, ultima), inv.tamano()).withRel(IanaLinkRelations.PREV));
+        }
+        if (inv.pagina() < ultima) {
+            modelo.add(enlacePagina(sedeId, inv.pagina() + 1, inv.tamano()).withRel(IanaLinkRelations.NEXT));
+        }
+        modelo.add(enlacePagina(sedeId, ultima, inv.tamano()).withRel(IanaLinkRelations.LAST));
         modelo.add(linkTo(methodOn(ProductoController.class).registrar(null)).withRel(REL_REGISTRAR));
         modelo.add(linkTo(methodOn(AlmacenController.class).listar()).withRel(REL_ALMACENES));
         return modelo;
@@ -58,19 +75,15 @@ public class Representaciones {
         return modelo;
     }
 
-    /** Dentro del inventario cada producto solo lleva su enlace de detalle (self). */
-    private ProductoModel productoEnInventario(Producto p) {
-        ProductoModel modelo = new ProductoModel(p.getId(), p.getSku(), p.getNombre(), p.getStock(),
-                p.getAlmacen().getId(), p.getAlmacen().getNombre(), p.getCreadoEn());
-        modelo.add(enlaceProducto(p.getId()).withSelfRel());
-        return modelo;
-    }
-
     private static Link enlaceProducto(Long id) {
         return linkTo(methodOn(ProductoController.class).obtener(id)).withSelfRel();
     }
 
     private static Link enlaceInventario(Long sedeId) {
-        return linkTo(methodOn(InventarioController.class).consultar(sedeId)).withSelfRel();
+        return linkTo(methodOn(InventarioController.class).consultar(sedeId, null, null)).withSelfRel().expand();
+    }
+
+    private static Link enlacePagina(Long sedeId, int pagina, int tamano) {
+        return linkTo(methodOn(InventarioController.class).consultar(sedeId, pagina, tamano)).withSelfRel();
     }
 }

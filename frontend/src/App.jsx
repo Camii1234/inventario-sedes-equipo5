@@ -119,6 +119,7 @@ export default function App() {
   const [enviando, setEnviando] = useState(false);
   const [registro, setRegistro] = useState(null);
   const [errorRegistro, setErrorRegistro] = useState(null);
+  const [estadoCache, setEstadoCache] = useState(null);
 
   const sede = almacenes.find((a) => String(a.id) === String(sedeId));
 
@@ -136,12 +137,13 @@ export default function App() {
     setCargando(true);
     setErrorConsulta(null);
     try {
-      const { datos } = await seguirEnlace(recurso, rel);
+      const { datos, cache } = await seguirEnlace(recurso, rel);
       if (destino === 'detalle') {
         setDetalle(datos);
       } else {
         setDetalle(null);
         setInventario(datos);
+        setEstadoCache(cache);
         setSedeId(String(datos.sede.id));
       }
     } catch (e) {
@@ -250,6 +252,24 @@ export default function App() {
             <>
               <TablaInventario inventario={inventario} resaltadoId={registro?.producto.id}
                 onVerDetalle={(p) => navegar(p, 'self', 'detalle')} />
+              {inventario.pagina && (
+                <nav className="paginacion" aria-label="Paginación del inventario" data-testid="paginacion">
+                  <button type="button" className="boton secundario" disabled={cargando || !inventario._links?.prev}
+                    onClick={() => navegar(inventario, 'prev', 'inventario')}>← Anterior</button>
+                  <span data-testid="pagina-actual">
+                    Página {inventario.pagina.numero + 1} de {Math.max(inventario.pagina.totalPaginas, 1)} ·{' '}
+                    {inventario.pagina.tamano} por página
+                  </span>
+                  <button type="button" className="boton secundario" disabled={cargando || !inventario._links?.next}
+                    onClick={() => navegar(inventario, 'next', 'inventario')}>Siguiente →</button>
+                  {estadoCache && (
+                    <span className={`insignia cache-${estadoCache.toLowerCase()}`} data-testid="estado-cache"
+                      title="Cabecera X-Cache: HIT = servido desde Redis, MISS = consultado en MySQL">
+                      Caché: {estadoCache}
+                    </span>
+                  )}
+                </nav>
+              )}
               <Enlaces links={inventario._links} />
             </>
           )}

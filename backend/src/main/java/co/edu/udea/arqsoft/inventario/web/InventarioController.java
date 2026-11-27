@@ -10,6 +10,8 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Positive;
 import org.springframework.hateoas.MediaTypes;
 import org.springframework.http.MediaType;
@@ -26,6 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Inventario", description = "Consulta del inventario de un almacén por ID de sede")
 public class InventarioController {
 
+    public static final int TAMANO_POR_DEFECTO = 10;
+    public static final int TAMANO_MAXIMO = 100;
+
     private final InventarioService servicio;
     private final Representaciones representaciones;
 
@@ -36,7 +41,9 @@ public class InventarioController {
 
     @GetMapping
     @Operation(summary = "Consultar el inventario de una sede",
-            description = "Devuelve la sede y todos sus productos ordenados por SKU (y por id como desempate). "
+            description = "Devuelve la sede y una página de sus productos ordenados por SKU (y por id como desempate). "
+                    + "Paginación con page (desde 0) y size (por defecto 10, máximo 100); enlaces first/prev/next/last. "
+                    + "La respuesta se guarda en Redis; la cabecera X-Cache indica HIT o MISS. "
                     + "Una sede existente sin productos responde 200 con la colección vacía; una sede inexistente responde 404.")
     @ApiResponse(responseCode = "200", description = "Inventario de la sede",
             content = @Content(mediaType = MediaTypes.HAL_JSON_VALUE, schema = @Schema(implementation = InventarioModel.class),
@@ -58,7 +65,15 @@ public class InventarioController {
                     examples = @ExampleObject(value = EjemplosApi.ERROR_SEDE_NO_ENCONTRADA)))
     public ResponseEntity<InventarioModel> consultar(
             @Parameter(description = "ID de la sede del almacén", required = true, example = "1")
-            @RequestParam @Positive(message = "El parámetro sedeId debe ser un entero mayor que cero") Long sedeId) {
-        return ResponseEntity.ok(representaciones.inventario(servicio.consultarInventario(sedeId)));
+            @RequestParam @Positive(message = "El parámetro sedeId debe ser un entero mayor que cero") Long sedeId,
+            @Parameter(description = "Número de página, empieza en 0", example = "0")
+            @RequestParam(required = false) @Min(value = 0, message = "El parámetro page debe ser mayor o igual a 0") Integer page,
+            @Parameter(description = "Productos por página (1 a " + TAMANO_MAXIMO + ")", example = "10")
+            @RequestParam(required = false) @Min(value = 1, message = "El parámetro size debe ser mayor o igual a 1")
+            @Max(value = TAMANO_MAXIMO, message = "El parámetro size no puede superar " + TAMANO_MAXIMO) Integer size) {
+        int pagina = page == null ? 0 : page;
+        int tamano = size == null ? TAMANO_POR_DEFECTO : size;
+        InventarioModel modelo = representaciones.inventario(servicio.consultarInventario(sedeId, pagina, tamano));
+        return ResponseEntity.ok().header(CacheEstado.HEADER, CacheEstado.valor()).body(modelo);
     }
 }

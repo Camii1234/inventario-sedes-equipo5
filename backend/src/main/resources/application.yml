@@ -28,6 +28,19 @@ spring:
       fail-on-null-for-primitives: true
     serialization:
       write-dates-as-timestamps: false
+  # Caché local con Redis (numeral 14). Si Redis no responde, la API sigue funcionando contra MySQL.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 500ms
+      connect-timeout: 500ms
+  cache:
+    type: redis
+    redis:
+      time-to-live: ${CACHE_TTL:10m}
+      key-prefix: "inventario-api::"
+      use-key-prefix: true
 
 springdoc:
   api-docs:

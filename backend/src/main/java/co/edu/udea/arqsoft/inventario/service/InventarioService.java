@@ -7,7 +7,14 @@ import co.edu.udea.arqsoft.inventario.error.ProductoDuplicadoException;
 import co.edu.udea.arqsoft.inventario.error.RecursoNoEncontradoException;
 import co.edu.udea.arqsoft.inventario.repository.AlmacenRepository;
 import co.edu.udea.arqsoft.inventario.repository.ProductoRepository;
+import co.edu.udea.arqsoft.inventario.config.CacheConfig;
+import co.edu.udea.arqsoft.inventario.web.CacheEstado;
 import java.util.List;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,11 +29,22 @@ public class InventarioService {
         this.productos = productos;
     }
 
-    /** Inventario de una sede existente; lanza 404 si la sede no existe. */
+    /**
+     * Página del inventario de una sede existente (404 si la sede no existe), ordenada por SKU e id.
+     * El resultado se guarda en Redis con la clave sedeId:pagina:tamano; los errores no se cachean.
+     */
+    @Cacheable(cacheNames = CacheConfig.INVENTARIO, key = "#sedeId + ':' + #pagina + ':' + #tamano")
     @Transactional(readOnly = true)
-    public InventarioSede consultarInventario(Long sedeId) {
+    public InventarioPagina consultarInventario(Long sedeId, int pagina, int tamano) {
+        CacheEstado.marcarMiss();
         Almacen almacen = almacenes.findById(sedeId).orElseThrow(() -> RecursoNoEncontradoException.sede(sedeId));
-        return new InventarioSede(almacen, productos.findByAlmacenIdOrderBySkuAscIdAsc(sedeId));
+        Page<Producto> page = productos.findByAlmacenId(sedeId,
+                PageRequest.of(pagina, tamano, Sort.by("sku").ascending().and(Sort.by("id").ascending())));
+        List<InventarioPagina.Item> items = page.getContent().stream()
+                .map(p -> new InventarioPagina.Item(p.getId(), p.getSku(), p.getNombre(), p.getStock(), p.getCreadoEn()))
+                .toList();
+        return new InventarioPagina(almacen.getId(), almacen.getNombre(), almacen.getCiudad(), items,
+                page.getTotalElements(), productos.sumarStock(sedeId), pagina, tamano, page.getTotalPages());
     }
 
     /**
@@ -34,6 +52,7 @@ public class InventarioService {
      * no se modifica nada y se informa el conflicto; la restricción única de la base de datos
      * respalda la regla ante peticiones concurrentes.
      */
+    @CacheEvict(cacheNames = CacheConfig.INVENTARIO, allEntries = true)
     @Transactional
     public Producto registrar(ProductoCreateRequest solicitud) {
         Almacen almacen = almacenes.findById(solicitud.sedeId())
@@ -53,8 +72,5 @@ public class InventarioService {
     @Transactional(readOnly = true)
     public List<Almacen> listarAlmacenes() {
         return almacenes.findAllByOrderByIdAsc();
-    }
-
-    public record InventarioSede(Almacen almacen, List<Producto> productos) {
     }
 }
