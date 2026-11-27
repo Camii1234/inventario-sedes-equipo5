@@ -1,0 +1,78 @@
+# Reglas de alerta evaluadas por Prometheus cada 10 s. Se consultan en http://localhost:9090/alerts
+# y en el tablero de Grafana (panel "Alertas activas").
+groups:
+  - name: inventario-disponibilidad
+    rules:
+      - alert: ApiInventarioCaida
+        expr: up{job="inventario-api"} == 0
+        for: 30s
+        labels:
+          severidad: critica
+        annotations:
+          summary: La API de inventario no responde
+          description: Prometheus no puede leer las métricas de backend:9464 desde hace más de 30 segundos.
+
+      - alert: MySQLNoDisponible
+        expr: mysql_up == 0
+        for: 30s
+        labels:
+          severidad: critica
+        annotations:
+          summary: MySQL no está disponible
+          description: mysqld-exporter no logra conectarse a mysql:3306.
+
+      - alert: ComponenteMonitoreadoCaido
+        expr: up{job!="inventario-api"} == 0
+        for: 1m
+        labels:
+          severidad: advertencia
+        annotations:
+          summary: "El componente {{ $labels.job }} no responde"
+          description: "Prometheus no puede leer {{ $labels.instance }} desde hace más de 1 minuto."
+
+  - name: inventario-rendimiento
+    rules:
+      - alert: TasaErrores5xxAlta
+        expr: |
+          sum(rate(http_server_request_duration_seconds_count{job="inventario-api", http_response_status_code=~"5.."}[5m]))
+            /
+          sum(rate(http_server_request_duration_seconds_count{job="inventario-api"}[5m])) > 0.05
+        for: 2m
+        labels:
+          severidad: critica
+        annotations:
+          summary: Más del 5 % de las peticiones terminan en error 5xx
+          description: "Tasa actual de errores 5xx: {{ $value | humanizePercentage }}."
+
+      - alert: LatenciaP95Alta
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket{job="inventario-api", http_route=~"/api/.+"}[5m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severidad: advertencia
+        annotations:
+          summary: "Latencia p95 alta en {{ $labels.http_route }}"
+          description: "El percentil 95 es {{ $value | humanizeDuration }} (umbral: 500 ms)."
+
+      - alert: MemoriaHeapAlta
+        expr: |
+          sum(jvm_memory_used_bytes{job="inventario-api", jvm_memory_type="heap"})
+            /
+          sum(jvm_memory_limit_bytes{job="inventario-api", jvm_memory_type="heap"} > 0) > 0.9
+        for: 5m
+        labels:
+          severidad: advertencia
+        annotations:
+          summary: El heap de la JVM supera el 90 %
+          description: "Uso del heap: {{ $value | humanizePercentage }}."
+
+      - alert: PoolConexionesConEspera
+        expr: max(db_client_connections_pending_requests{job="inventario-api"}) > 0
+        for: 1m
+        labels:
+          severidad: advertencia
+        annotations:
+          summary: Hay peticiones esperando conexión a MySQL
+          description: El pool HikariCP está agotado; revise consultas lentas o aumente el tamaño del pool.

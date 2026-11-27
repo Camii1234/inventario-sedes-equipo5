@@ -1,0 +1,165 @@
+# Pila de observabilidad (numeral 13): métricas, trazas y logs.
+#
+# Docker Compose combina automáticamente este archivo con compose.yaml cuando se ejecuta
+#   docker compose up --build -d
+# desde la raíz del repositorio. Para levantar solo la aplicación, sin observabilidad:
+#   docker compose -f compose.yaml up --build -d
+#
+#   backend ──(OpenTelemetry Java agent)──┬─ métricas  ← Prometheus lee backend:9464/metrics
+#                                         ├─ trazas    → Tempo  (OTLP http://tempo:4318)
+#                                         └─ logs      → Loki   (OTLP http://loki:3100/otlp)
+#   mysqld-exporter y nginx-exporter publican métricas de MySQL y Nginx para Prometheus.
+#   Grafana consulta Prometheus, Loki, Tempo y (solo lectura) MySQL.
+
+services:
+  backend:
+    environment:
+      # Activa el agente que el Dockerfile copia en /app/otel. Sin esta variable el agente no se carga.
+      # La propiedad de logging deja una línea por petición ("GET /api/...", "Completed 200 OK") enlazada a su traza.
+      JAVA_TOOL_OPTIONS: >-
+        -javaagent:/app/otel/opentelemetry-javaagent.jar
+        -Dlogging.level.org.springframework.web.servlet.DispatcherServlet=DEBUG
+      OTEL_SERVICE_NAME: inventario-api
+      OTEL_RESOURCE_ATTRIBUTES: service.namespace=inventario-sedes,service.version=1.0.0,deployment.environment=docker
+      OTEL_METRICS_EXPORTER: prometheus
+      OTEL_EXPORTER_PROMETHEUS_HOST: 0.0.0.0
+      OTEL_EXPORTER_PROMETHEUS_PORT: "9464"
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_LOGS_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://tempo:4318/v1/traces
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: http://loki:3100/otlp/v1/logs
+      OTEL_TRACES_SAMPLER: parentbased_always_on
+      OTEL_INSTRUMENTATION_LOGBACK_APPENDER_EXPERIMENTAL_LOG_ATTRIBUTES: "true"
+    depends_on:
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+
+  # Métricas de MySQL (conexiones, consultas por segundo, InnoDB). Usa root solo en este entorno de desarrollo.
+  mysqld-exporter:
+    image: prom/mysqld-exporter:v0.17.2
+    container_name: inventario-mysqld-exporter
+    command: ["--mysqld.address=mysql:3306", "--mysqld.username=root"]
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+  # Métricas de Nginx (conexiones activas y peticiones) a partir de /nginx_status del frontend.
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.2
+    container_name: inventario-nginx-exporter
+    command: ["--nginx.scrape-uri=http://frontend/nginx_status"]
+    depends_on:
+      - frontend
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+  # Crea (o actualiza) un usuario de solo lectura para los paneles de negocio de Grafana y termina.
+  mysql-lector-grafana:
+    image: mysql:8.4
+    container_name: inventario-mysql-lector-grafana
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        mysql -h mysql -uroot -p"$$MYSQL_ROOT_PASSWORD" -e "
+        CREATE USER IF NOT EXISTS 'grafana_lector'@'%' IDENTIFIED BY '$$GRAFANA_DB_PASSWORD';
+        ALTER USER 'grafana_lector'@'%' IDENTIFIED BY '$$GRAFANA_DB_PASSWORD';
+        GRANT SELECT ON $$MYSQL_DATABASE.* TO 'grafana_lector'@'%';"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-inventario}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana_lector_dev}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - inventario-net
+    restart: "no"
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: inventario-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --enable-feature=exemplar-storage
+      - --web.enable-lifecycle
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./observabilidad/prometheus:/etc/prometheus:ro
+      - prometheus-data:/prometheus
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: inventario-loki
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./observabilidad/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    container_name: inventario-tempo
+    command: ["-config.file=/etc/tempo/tempo.yml"]
+    volumes:
+      - ./observabilidad/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: inventario-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      # Acceso de solo lectura sin iniciar sesión, para la demostración.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_LANGUAGE: es-ES
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/inventario-api.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      # Credenciales que usa la fuente de datos MySQL (ver provisioning/datasources).
+      INVENTARIO_DB_NAME: ${MYSQL_DATABASE:-inventario}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana_lector_dev}
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - ./observabilidad/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observabilidad/grafana/dashboards:/etc/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+      mysql-lector-grafana:
+        condition: service_completed_successfully
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+    name: inventario-prometheus-data
+  loki-data:
+    name: inventario-loki-data

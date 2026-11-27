@@ -28,6 +28,32 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  # Caché local de la API (numeral 14): solo memoria, sin persistencia, con expulsión LRU.
+  redis:
+    image: redis:7.4-alpine
+    container_name: inventario-redis
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "no"]
+    networks:
+      - inventario-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Métricas de Redis (aciertos/fallos de caché, memoria, claves) para Prometheus.
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    container_name: inventario-redis-exporter
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
   backend:
     build: ./backend
     image: inventario-sedes/backend:1.0.0
@@ -36,10 +62,14 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-inventario}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
       DB_USER: ${MYSQL_USER:-inventario}
       DB_PASSWORD: ${MYSQL_PASSWORD:-inventario_dev}
+      REDIS_HOST: redis
+      CACHE_TTL: ${CACHE_TTL:-10m}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
       mysql:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - inventario-net

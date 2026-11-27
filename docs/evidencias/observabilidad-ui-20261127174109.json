@@ -1,0 +1,49 @@
+{
+  "fecha": "2026-11-27T17:41:09.675Z",
+  "traceId": "b6fd4cf02a9a09c2f1ec2cde2820e4b5",
+  "pasos": [
+    {
+      "id": "OBS-UI-0",
+      "operacion": "GET /api/inventario?sedeId=1 con traceparent",
+      "observado": "200, trace b6fd4cf02a9a09c2f1ec2cde2820e4b5",
+      "resultado": "OK"
+    },
+    {
+      "id": "OBS-UI-1",
+      "operacion": "Grafana: tablero \"Inventario por sede · Observabilidad\"",
+      "observado": "paneles sin datos: 1",
+      "resultado": "OK",
+      "captura": "docs/capturas/observabilidad/01-grafana-tablero.png"
+    },
+    {
+      "id": "OBS-UI-2",
+      "operacion": "Prometheus: objetivos de scraping",
+      "observado": "7/7 arriba",
+      "resultado": "OK",
+      "captura": "docs/capturas/observabilidad/02-prometheus-objetivos.png"
+    },
+    {
+      "id": "OBS-UI-3",
+      "operacion": "Prometheus: reglas de alerta cargadas",
+      "observado": "7 reglas",
+      "resultado": "OK",
+      "captura": "docs/capturas/observabilidad/03-prometheus-reglas-alerta.png"
+    },
+    {
+      "id": "OBS-UI-4",
+      "operacion": "Grafana Explore: logs del backend (Loki)",
+      "observado": "logs con trace_id y span_id",
+      "resultado": "OK",
+      "captura": "docs/capturas/observabilidad/04-grafana-logs-loki.png"
+    },
+    {
+      "id": "OBS-UI-5",
+      "operacion": "Grafana Explore: traza de la petición en Tempo",
+      "observado": "8 spans (SELECT inventario.almacen | SELECT inventario | GET /api/inventario | Session.find co.edu.udea.arqsoft.inventario.domain.Almacen | SELECT | Transaction.commit | AlmacenRepository.findById | ProductoRepository.findByAlmacenIdOrderBySkuAscIdAsc)",
+      "resultado": "OK",
+      "captura": "docs/capturas/observabilidad/05-grafana-traza-tempo.png"
+    }
+  ],
+  "total": 6,
+  "fallas": 0
+}

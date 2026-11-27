@@ -1,0 +1,121 @@
+﻿{
+    "fecha":  "2026-11-27T12:45:06",
+    "sku":  "OBS-20261127124332",
+    "traceId":  "707c15e518b5e28f14110fd202d9ef5f",
+    "ok":  16,
+    "total":  16,
+    "resultados":  [
+                       {
+                           "Id":  "1",
+                           "Operacion":  "docker compose ps",
+                           "Esperado":  "9 servicios en ejecución y mysql-lector-grafana terminado con código 0",
+                           "Observado":  "todos arriba; lector de Grafana terminado OK=True",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "2",
+                           "Operacion":  "Tráfico de prueba (SKU OBS-20261127124332, trace 707c15e518b5e28f14110fd202d9ef5f)",
+                           "Esperado":  "201, 409, 400, 404",
+                           "Observado":  "201, 409, 400, 404",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "3.1",
+                           "Operacion":  "Prometheus: objetivos de scraping",
+                           "Esperado":  "todos en estado up",
+                           "Observado":  "7/7 arriba ",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "3.2",
+                           "Operacion":  "Métrica http_server_request_duration_seconds_count por código",
+                           "Esperado":  "incluye 200, 201, 400, 404 y 409",
+                           "Observado":  "200, 201, 400, 404, 409",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "3.3",
+                           "Operacion":  "Métrica HTTP por ruta",
+                           "Esperado":  "/api/inventario, /api/productos, /api/almacenes",
+                           "Observado":  "/api/almacenes, /api/inventario, /*, /api/productos",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "3.4",
+                           "Operacion":  "Latencia p95 de /api (histograma)",
+                           "Esperado":  "valor numérico",
+                           "Observado":  "388,2 ms",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "3.5",
+                           "Operacion":  "Métricas de JVM, HikariCP, MySQL y Nginx",
+                           "Esperado":  "presentes; mysql_up=1 y nginx_up=1",
+                           "Observado":  "heap=145 MiB, pool máx=10, mysql_up=1, nginx_up=1",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "3.6",
+                           "Operacion":  "Exemplars (métrica -\u003e traza)",
+                           "Esperado":  "al menos un exemplar con trace_id",
+                           "Observado":  "27 exemplars",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "3.7",
+                           "Operacion":  "Reglas de alerta cargadas y evaluadas",
+                           "Esperado":  "7 reglas en estado ok",
+                           "Observado":  "7/7 ok: ApiInventarioCaida, MySQLNoDisponible, ComponenteMonitoreadoCaido, TasaErrores5xxAlta, LatenciaP95Alta, MemoriaHeapAlta, PoolConexionesConEspera",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "4.1",
+                           "Operacion":  "Tempo: traza 707c15e518b5e28f14110fd202d9ef5f del POST",
+                           "Esperado":  "span POST /api/productos y span INSERT en MySQL",
+                           "Observado":  "11 spans: SELECT inventario.almacen | SELECT inventario | INSERT inventario.producto | AlmacenRepository.findById | ProductoRepository.findByAlmacenIdAndSku | ProductoRepository.saveAndFlush | POST /api/productos | Session.find co.edu.udea.arqsoft.inventario.domain.Almacen | SELECT | Session.persist co.edu.udea.arqsoft.inventario.domain.Producto | Transaction.commit",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "4.2",
+                           "Operacion":  "Loki: logs con el mismo trace_id",
+                           "Esperado":  "líneas \"POST /api/productos\" y \"Completed 201\"",
+                           "Observado":  "2 líneas: POST \"/api/productos\", parameters={} | Completed 201 CREATED",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "5.1",
+                           "Operacion":  "Grafana: salud de las fuentes de datos",
+                           "Esperado":  "prometheus, loki y mysql en OK",
+                           "Observado":  "prometheus=OK, loki=OK, mysql-inventario=OK",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "5.2",
+                           "Operacion":  "Grafana: tablero provisionado",
+                           "Esperado":  "\"Inventario por sede · Observabilidad\"",
+                           "Observado":  "200 Inventario por sede · Observabilidad, 26 paneles",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "5.3",
+                           "Operacion":  "Grafana -\u003e MySQL (usuario de solo lectura)",
+                           "Esperado":  "el producto OBS-20261127124332 con stock 15",
+                           "Observado":  "200: OBS-20261127124332 = 15",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "6.1",
+                           "Operacion":  "Backend detenido -\u003e alerta ApiInventarioCaida",
+                           "Esperado":  "estado firing",
+                           "Observado":  "firing a los 51 s",
+                           "Resultado":  "OK"
+                       },
+                       {
+                           "Id":  "6.2",
+                           "Operacion":  "Backend iniciado de nuevo -\u003e alerta resuelta",
+                           "Esperado":  "API 200 y alerta inactiva",
+                           "Observado":  "API=True, alerta resuelta=True",
+                           "Resultado":  "OK"
+                       }
+                   ]
+}
