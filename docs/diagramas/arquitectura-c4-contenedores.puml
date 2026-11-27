@@ -1,0 +1,34 @@
+@startuml arquitectura-c4-contenedores
+' Diagrama C4 de contenedores - Fase 1 (componentes implementados en compose.yaml)
+' Regenerar SVG/PNG desde la raíz del repositorio:
+'   docker run --rm -v "${PWD}/docs/diagramas:/data" plantuml/plantuml:1.2024.8 -tsvg -tpng /data/arquitectura-c4-contenedores.puml
+!include <C4/C4_Container>
+
+LAYOUT_LEFT_RIGHT()
+SHOW_PERSON_OUTLINE()
+title Inventario por sede - Diagrama C4 de contenedores (Fase 1, Docker Compose)
+
+Person(usuario, "Usuario / profesor", "Consulta el inventario de una sede y registra productos con stock inicial")
+
+Boundary(equipo, "Equipo del usuario", "host Windows") {
+  Container(navegador, "Navegador web", "Chrome / Edge", "Ejecuta la SPA React descargada del contenedor frontend. Envía X-API-Version: 1 en todas las peticiones y sigue los href HATEOAS")
+  Container(swagger, "Swagger UI", "Navegador", "Documentación interactiva servida por la API: /swagger-ui.html y /v3/api-docs")
+}
+
+Boundary(compose, "Proyecto Compose inventario-sedes - red bridge inventario-net", "Docker Compose") {
+  Container(frontend, "inventario-frontend", "Nginx 1.27 + build de React 18 / Vite", "Sirve index.html y assets estáticos. Proxy inverso de /api, /swagger-ui y /v3/api-docs hacia backend:8080 conservando Host y X-Forwarded-*. Puerto interno 80, publicado 3000")
+  Container(backend, "inventario-backend", "Java 21, Spring Boot 3.5 (Web, Data JPA, Validation, HATEOAS, springdoc)", "API REST /api/inventario, /api/productos, /api/almacenes. Filtro de versión X-API-Version, HAL+JSON, problem+json, Flyway. Puerto interno 8080, publicado 8080")
+  ContainerDb(mysql, "inventario-mysql", "MySQL 8.4", "Tablas almacen y producto: FK producto.almacen_id y UNIQUE (almacen_id, sku). Healthcheck mysqladmin ping. Puerto interno 3306, publicado 3308")
+  ContainerDb(volumen, "Volumen inventario-mysql-data", "Volumen Docker nombrado", "Montado en /var/lib/mysql: conserva los datos al reiniciar o recrear contenedores")
+}
+
+Rel(usuario, navegador, "Usa la interfaz", "pantalla")
+Rel(usuario, swagger, "Prueba los endpoints", "pantalla")
+Rel(navegador, frontend, "Descarga la SPA y llama /api/... (mismo origen)", "HTTP :3000")
+Rel(swagger, backend, "GET /v3/api-docs y peticiones de prueba", "HTTP :8080")
+Rel(frontend, backend, "proxy_pass /api/...", "HTTP backend:8080 (red interna)")
+Rel(backend, mysql, "JPA / Hibernate + Flyway", "JDBC mysql:3306 (red interna)")
+Rel(mysql, volumen, "Persiste archivos de datos", "montaje de volumen")
+
+SHOW_LEGEND()
+@enduml

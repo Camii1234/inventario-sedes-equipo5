@@ -1,0 +1,266 @@
+[
+    {
+        "Id":  "1",
+        "Operacion":  "docker compose ps",
+        "Esperado":  "3 servicios en ejecución",
+        "Observado":  "mysql, backend y frontend arriba",
+        "Resultado":  "OK",
+        "Evidencia":  "docker compose ps"
+    },
+    {
+        "Id":  "2.0",
+        "Operacion":  "GET /api/almacenes",
+        "Esperado":  "200 con 3 sedes",
+        "Observado":  "200 con 3 sedes",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/almacenes"
+    },
+    {
+        "Id":  "2.1",
+        "Operacion":  "GET /api/inventario?sedeId=1",
+        "Esperado":  "200, sede 1, application/hal+json",
+        "Observado":  "200, sede 1 Sede Medellín Centro, 4 productos",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/inventario?sedeId=1"
+    },
+    {
+        "Id":  "2.2",
+        "Operacion":  "GET /api/inventario?sedeId=2",
+        "Esperado":  "200, sede 2",
+        "Observado":  "200, sede 2 Sede Bogotá Norte, 5 productos",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/inventario?sedeId=2"
+    },
+    {
+        "Id":  "2.3",
+        "Operacion":  "SKU compartido ACE-001",
+        "Esperado":  "stock distinto en sede 1 y 2",
+        "Observado":  "sede 1 = 35, sede 2 = 12",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "2.4",
+        "Operacion":  "Aislamiento entre sedes",
+        "Esperado":  "ningún registro de otra sede; CAF-001 solo en sede 2",
+        "Observado":  "ajenos en sede1=0, sede2=0; CAF-001 en sede1=0",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "2.5",
+        "Operacion":  "Orden estable del inventario",
+        "Esperado":  "productos ordenados por SKU",
+        "Observado":  "ACE-001, AZU-001, DEMO-20261127104641, LEC-001",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "3.1",
+        "Operacion":  "POST /api/productos (DEMO-20261127104801, stock 20, sede 1)",
+        "Esperado":  "201 Created",
+        "Observado":  "201 application/hal+json, id 10, stock 20",
+        "Resultado":  "OK",
+        "Evidencia":  "{\"id\":10,\"sku\":\"DEMO-20261127104801\",\"nombre\":\"Arroz blanco de 1 kg\",\"stock\":20,\"sedeId\":1,\"sedeNombre\":\"Sede Medellín Centro\",\"creadoEn\":\"2026-11-27T15:48:08.141990153Z\",\"_links\":{\"self\":{\"href\":\"http://localhost:8080/api/productos/10\"},\"inventario\":{\"href\":\"http://localhost:8080/api/inventario?sedeId=1\"}}}"
+    },
+    {
+        "Id":  "3.2",
+        "Operacion":  "Cabecera Location",
+        "Esperado":  "igual a _links.self.href",
+        "Observado":  "Location=http://localhost:8080/api/productos/10",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/productos/10"
+    },
+    {
+        "Id":  "3.3",
+        "Operacion":  "Enlaces del POST",
+        "Esperado":  "self e inventario?sedeId=1",
+        "Observado":  "self=http://localhost:8080/api/productos/10 ; inventario=http://localhost:8080/api/inventario?sedeId=1",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "4.1",
+        "Operacion":  "GET enlace self",
+        "Esperado":  "200, DEMO-20261127104801, sede 1, stock 20",
+        "Observado":  "200, DEMO-20261127104801, sede 1, stock 20",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/productos/10"
+    },
+    {
+        "Id":  "4.2",
+        "Operacion":  "GET enlace inventario",
+        "Esperado":  "200, sede 1 incluye DEMO-20261127104801 con 20",
+        "Observado":  "200, sede 1, stock DEMO-20261127104801 = 20",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/inventario?sedeId=1"
+    },
+    {
+        "Id":  "4.3",
+        "Operacion":  "GET enlace self de un producto del inventario",
+        "Esperado":  "200 con ese producto",
+        "Observado":  "200, ACE-001",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/productos/1"
+    },
+    {
+        "Id":  "4.4",
+        "Operacion":  "Seguir self sin X-API-Version",
+        "Esperado":  "400 VERSION_REQUERIDA",
+        "Observado":  "400 VERSION_REQUERIDA",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "4.5",
+        "Operacion":  "HATEOAS vía proxy del frontend",
+        "Esperado":  "self con origen http://localhost:3000 y navegable",
+        "Observado":  "200; self=http://localhost:3000/api/inventario?sedeId=1 -\u003e 200",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:3000/api/inventario?sedeId=1"
+    },
+    {
+        "Id":  "5.1",
+        "Operacion":  "POST mismo SKU en sede 1 (minúsculas y espacios, stock 99)",
+        "Esperado":  "409 SKU_DUPLICADO_EN_SEDE",
+        "Observado":  "409 application/problem+json SKU_DUPLICADO_EN_SEDE: Ya existe el SKU DEMO-20261127104801 en la sede 1. El stock registrado (20) no se modificó.",
+        "Resultado":  "OK",
+        "Evidencia":  "{\"type\":\"urn:inventario:error:sku-duplicado-en-sede\",\"title\":\"El SKU ya existe en la sede\",\"status\":409,\"detail\":\"Ya existe el SKU DEMO-20261127104801 en la sede 1. El stock registrado (20) no se modificó.\",\"instance\":\"/api/productos\",\"codigo\":\"SKU_DUPLICADO_EN_SEDE\",\"timestamp\":\"2026-11-27T15:48:08.818565343Z\",\"productoExistente\":{\"id\":10,\"sku\":\"DEMO-20261127104801\",\"sedeId\":1,\"stock\":20,\"href\":\"http://localhost:8080/api/productos/10\"}}"
+    },
+    {
+        "Id":  "5.2",
+        "Operacion":  "Stock tras el 409",
+        "Esperado":  "sigue en 20",
+        "Observado":  "stock = 20",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/productos/10"
+    },
+    {
+        "Id":  "5.3",
+        "Operacion":  "POST mismo SKU en sede 2 con stock 8",
+        "Esperado":  "201 Created",
+        "Observado":  "201, sede 2, stock 8",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/productos/11"
+    },
+    {
+        "Id":  "5.4",
+        "Operacion":  "Ambos valores del SKU",
+        "Esperado":  "sede 1 = 20, sede 2 = 8",
+        "Observado":  "sede 1 = 20, sede 2 = 8",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "6.1",
+        "Operacion":  "POST stock 0",
+        "Esperado":  "201 (cero es válido)",
+        "Observado":  "201, stock 0",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/productos/12"
+    },
+    {
+        "Id":  "6.2",
+        "Operacion":  "POST stock -5",
+        "Esperado":  "400 VALIDACION_FALLIDA en stockInicial",
+        "Observado":  "400 VALIDACION_FALLIDA: El campo stockInicial debe ser un entero mayor o igual a cero",
+        "Resultado":  "OK",
+        "Evidencia":  "{\"type\":\"urn:inventario:error:validacion-fallida\",\"title\":\"Datos del producto inválidos\",\"status\":400,\"detail\":\"El campo stockInicial debe ser un entero mayor o igual a cero\",\"instance\":\"/api/productos\",\"codigo\":\"VALIDACION_FALLIDA\",\"timestamp\":\"2026-11-27T15:48:09.108554540Z\",\"errores\":[{\"campo\":\"stockInicial\",\"mensaje\":\"El campo stockInicial debe ser un entero mayor o igual a cero\",\"valorRechazado\":-5}]}"
+    },
+    {
+        "Id":  "6.3",
+        "Operacion":  "POST sede inexistente (999)",
+        "Esperado":  "404 SEDE_NO_ENCONTRADA",
+        "Observado":  "404 SEDE_NO_ENCONTRADA",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "6.4",
+        "Operacion":  "GET inventario sede inexistente (999)",
+        "Esperado":  "404 SEDE_NO_ENCONTRADA",
+        "Observado":  "404 application/problem+json SEDE_NO_ENCONTRADA: No existe una sede con id 999",
+        "Resultado":  "OK",
+        "Evidencia":  "{\"type\":\"urn:inventario:error:sede-no-encontrada\",\"title\":\"Recurso no encontrado\",\"status\":404,\"detail\":\"No existe una sede con id 999\",\"instance\":\"/api/inventario?sedeId=999\",\"codigo\":\"SEDE_NO_ENCONTRADA\",\"timestamp\":\"2026-11-27T15:48:09.179258234Z\"}"
+    },
+    {
+        "Id":  "6.5",
+        "Operacion":  "GET inventario sede vacía (3)",
+        "Esperado":  "200 con productos = []",
+        "Observado":  "200, Sede Cali Sur, totalProductos 0",
+        "Resultado":  "OK",
+        "Evidencia":  "{\"sede\":{\"id\":3,\"nombre\":\"Sede Cali Sur\",\"ciudad\":\"Cali\"},\"totalProductos\":0,\"totalUnidades\":0,\"productos\":[],\"_links\":{\"self\":{\"href\":\"http://localhost:8080/api/inventario?sedeId=3\"},\"registrar-producto\":{\"href\":\"http://localhost:8080/api/productos\"},\"almacenes\":{\"href\":\"http://localhost:8080/api/almacenes\"}}}"
+    },
+    {
+        "Id":  "6.6",
+        "Operacion":  "GET inventario sin sedeId",
+        "Esperado":  "400 PARAMETRO_REQUERIDO",
+        "Observado":  "400 PARAMETRO_REQUERIDO: El parámetro de consulta \u0027sedeId\u0027 es obligatorio. Ejemplo: /api/inventario?sedeId=1",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "6.7",
+        "Operacion":  "GET inventario sedeId=abc",
+        "Esperado":  "400 PARAMETRO_INVALIDO",
+        "Observado":  "400 PARAMETRO_INVALIDO",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "6.8",
+        "Operacion":  "GET sin X-API-Version",
+        "Esperado":  "400 VERSION_REQUERIDA",
+        "Observado":  "400 VERSION_REQUERIDA: La petición debe incluir el encabezado X-API-Version. Ejemplo: X-API-Version: 1.",
+        "Resultado":  "OK",
+        "Evidencia":  "{\"type\":\"urn:inventario:error:version-requerida\",\"title\":\"Falta el encabezado de versión\",\"status\":400,\"detail\":\"La petición debe incluir el encabezado X-API-Version. Ejemplo: X-API-Version: 1.\",\"instance\":\"/api/inventario\",\"codigo\":\"VERSION_REQUERIDA\",\"timestamp\":\"2026-11-27T15:48:09.277114145Z\",\"versionesSoportadas\":[\"1\"]}"
+    },
+    {
+        "Id":  "6.9",
+        "Operacion":  "GET con X-API-Version: 2",
+        "Esperado":  "400 VERSION_NO_SOPORTADA (versiones admitidas: 1)",
+        "Observado":  "400 VERSION_NO_SOPORTADA: La versión \u00272\u0027 no está soportada. Versiones admitidas en X-API-Version: 1.",
+        "Resultado":  "OK",
+        "Evidencia":  "{\"type\":\"urn:inventario:error:version-no-soportada\",\"title\":\"Versión de API no soportada\",\"status\":400,\"detail\":\"La versión \u00272\u0027 no está soportada. Versiones admitidas en X-API-Version: 1.\",\"instance\":\"/api/inventario\",\"codigo\":\"VERSION_NO_SOPORTADA\",\"timestamp\":\"2026-11-27T15:48:09.294863392Z\",\"versionesSoportadas\":[\"1\"]}"
+    },
+    {
+        "Id":  "6.10",
+        "Operacion":  "POST sin X-API-Version",
+        "Esperado":  "400 VERSION_REQUERIDA",
+        "Observado":  "400 VERSION_REQUERIDA",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "7.1",
+        "Operacion":  "docker compose restart + GET self",
+        "Esperado":  "API disponible y DEMO-20261127104801 con stock 20",
+        "Observado":  "API=True, 200, stock 20",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/api/productos/10"
+    },
+    {
+        "Id":  "7.2",
+        "Operacion":  "Carga inicial no duplicada",
+        "Esperado":  "3 sedes y un ACE-001 en sede 1",
+        "Observado":  "3 sedes, ACE-001 x1",
+        "Resultado":  "OK",
+        "Evidencia":  ""
+    },
+    {
+        "Id":  "8.1",
+        "Operacion":  "Swagger UI y /v3/api-docs sin encabezado",
+        "Esperado":  "200 y contrato con X-API-Version",
+        "Observado":  "swagger 200, api-docs 200, header documentado=True",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:8080/swagger-ui.html"
+    },
+    {
+        "Id":  "8.2",
+        "Operacion":  "Frontend y OpenAPI vía puerto web",
+        "Esperado":  "200 index.html con #root; api-docs 200",
+        "Observado":  "index 200, api-docs 200",
+        "Resultado":  "OK",
+        "Evidencia":  "http://localhost:3000/"
+    }
+]

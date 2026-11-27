@@ -1,0 +1,13 @@
+{
+  "name": "inventario-ui-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Recorrido de aceptación en el navegador (React + Swagger UI) con capturas de pantalla",
+  "scripts": {
+    "capturas": "node capturas.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.49.1"
+  }
+}

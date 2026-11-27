@@ -1,0 +1,16 @@
+# Pruebas automatizadas del backend - .\mvnw.cmd test - 2026-11-27T16:04Z
+
+[INFO] Running co.edu.udea.arqsoft.inventario.InventarioApiTest
+[INFO] Running 6. Versionamiento por X-API-Version
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 33.87 s -- in 6. Versionamiento por X-API-Version
+[INFO] Running 7. HATEOAS y detalle de producto
+[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.753 s -- in 7. HATEOAS y detalle de producto
+[INFO] Running 2. POST /api/productos
+[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.786 s -- in 2. POST /api/productos
+[INFO] Running 1. GET /api/inventario?sedeId
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.387 s -- in 1. GET /api/inventario?sedeId
+[INFO] Tests run: 0, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 39.68 s -- in co.edu.udea.arqsoft.inventario.InventarioApiTest
+[INFO] Running co.edu.udea.arqsoft.inventario.ReglasDatosTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.047 s -- in co.edu.udea.arqsoft.inventario.ReglasDatosTest
+[INFO] Tests run: 26, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS

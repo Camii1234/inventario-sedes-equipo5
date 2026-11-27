@@ -1,0 +1,151 @@
+{
+  "fecha": "2026-11-27T15:55:44.107Z",
+  "web": "http://localhost:3000",
+  "api": "http://localhost:8080",
+  "navegador": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+  "sku": "UI-20261127155522",
+  "resultado": "10/10",
+  "pasos": [
+    {
+      "id": "UI-1",
+      "operacion": "Abrir frontend, sede 1",
+      "esperado": "tabla con nombre de sede, SKU, producto y stock",
+      "observado": "Sede Medellín Centro · Medellín · 8 productos · 225 unidades; ACE-001=35",
+      "resultado": "OK",
+      "captura": "docs/capturas/01-inventario-sede-1.png"
+    },
+    {
+      "id": "UI-2",
+      "operacion": "Seleccionar sede 2",
+      "esperado": "ACE-001 con stock distinto; sin productos de la sede 1",
+      "observado": "ACE-001=12; LEC-001 presente=false",
+      "resultado": "OK",
+      "captura": "docs/capturas/02-inventario-sede-2.png"
+    },
+    {
+      "id": "UI-3",
+      "operacion": "Seleccionar sede 3",
+      "esperado": "estado visual de sede vacía",
+      "observado": "mensaje de sede vacía visible=true",
+      "resultado": "OK",
+      "captura": "docs/capturas/03-sede-vacia.png"
+    },
+    {
+      "id": "UI-4",
+      "operacion": "Registrar ui-20261127155522 con stock 20 en sede 1",
+      "esperado": "confirmación 201, Location e inventario actualizado",
+      "observado": "Producto registrado (201 Created); fila UI-20261127155522=20",
+      "resultado": "OK",
+      "captura": "docs/capturas/04-registro-exitoso.png"
+    },
+    {
+      "id": "UI-5",
+      "operacion": "Abrir detalle (enlace self)",
+      "esperado": "detalle de UI-20261127155522 con stock 20",
+      "observado": "ID | 16 | SKU | UI-20261127155522 | Producto | Arroz blanco de 1 kg | Stock | 20",
+      "resultado": "OK",
+      "captura": "docs/capturas/05-detalle-producto.png"
+    },
+    {
+      "id": "UI-6",
+      "operacion": "Volver con el enlace inventario",
+      "esperado": "inventario de la sede 1 con el producto",
+      "observado": "fila UI-20261127155522=20",
+      "resultado": "OK",
+      "captura": "docs/capturas/06-volver-inventario.png"
+    },
+    {
+      "id": "UI-7",
+      "operacion": "Registrar el mismo SKU otra vez",
+      "esperado": "mensaje comprensible de SKU duplicado; stock sigue en 20",
+      "observado": "SKU duplicado (409) El SKU UI-20261127155522 ya existe en esta sede con stock 20. No se modificó el inventario. ×; fila=20",
+      "resultado": "OK",
+      "captura": "docs/capturas/07-sku-duplicado.png"
+    },
+    {
+      "id": "UI-8",
+      "operacion": "Registrar con stock -5",
+      "esperado": "mensaje de stock inválido junto al campo",
+      "observado": "El campo stockInicial debe ser un entero mayor o igual a cero",
+      "resultado": "OK",
+      "captura": "docs/capturas/08-stock-invalido.png"
+    },
+    {
+      "id": "UI-9",
+      "operacion": "Encabezado en peticiones del navegador (incluye enlaces seguidos)",
+      "esperado": "todas con X-API-Version: 1",
+      "observado": "11 peticiones, 0 sin versión",
+      "resultado": "OK"
+    },
+    {
+      "id": "UI-10",
+      "operacion": "Swagger UI: Try it out GET /api/inventario?sedeId=1",
+      "esperado": "200 con X-API-Version precargado en 1",
+      "observado": "X-API-Version=1; status 200",
+      "resultado": "OK",
+      "captura": "docs/capturas/09-swagger-get-inventario.png"
+    }
+  ],
+  "peticionesApi": [
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/almacenes",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/inventario?sedeId=1",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/inventario?sedeId=2",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/inventario?sedeId=3",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/inventario?sedeId=1",
+      "version": "1"
+    },
+    {
+      "metodo": "POST",
+      "url": "http://localhost:3000/api/productos",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/inventario?sedeId=1",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/productos/16",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:3000/api/inventario?sedeId=1",
+      "version": "1"
+    },
+    {
+      "metodo": "POST",
+      "url": "http://localhost:3000/api/productos",
+      "version": "1"
+    },
+    {
+      "metodo": "POST",
+      "url": "http://localhost:3000/api/productos",
+      "version": "1"
+    },
+    {
+      "metodo": "GET",
+      "url": "http://localhost:8080/api/inventario?sedeId=1",
+      "version": "1"
+    }
+  ]
+}

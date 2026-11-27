@@ -1,0 +1,66 @@
+# Inventario por sede - Equipo 5. Arranque desde la raíz:  docker compose up --build -d
+# Las variables se pueden sobreescribir en un archivo .env (ver .env.example).
+name: inventario-sedes
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: inventario-mysql
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-inventario}
+      MYSQL_USER: ${MYSQL_USER:-inventario}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-inventario_dev}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev}
+      TZ: UTC
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    ports:
+      - "${MYSQL_PORT:-3308}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - inventario-net
+    healthcheck:
+      # Durante la inicialización MySQL arranca sin red TCP; el chequeo solo pasa con el servidor definitivo.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    image: inventario-sedes/backend:1.0.0
+    container_name: inventario-backend
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-inventario}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+      DB_USER: ${MYSQL_USER:-inventario}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-inventario_dev}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: inventario-sedes/frontend:1.0.0
+    container_name: inventario-frontend
+    ports:
+      - "${WEB_PORT:-3000}:80"
+    depends_on:
+      - backend
+    networks:
+      - inventario-net
+    restart: unless-stopped
+
+networks:
+  inventario-net:
+    name: inventario-net
+
+volumes:
+  mysql-data:
+    name: inventario-mysql-data
