@@ -34,7 +34,7 @@ async function solicitar(url, opciones = {}) {
     }
   }
   if (!respuesta.ok) throw new ApiError(respuesta.status, datos);
-  return { datos, status: respuesta.status, location: respuesta.headers.get('Location') };
+  return { datos, status: respuesta.status, location: respuesta.headers.get('Location'), cache: respuesta.headers.get('X-Cache') };
 }
 
 export const listarAlmacenes = () => solicitar('/api/almacenes');
