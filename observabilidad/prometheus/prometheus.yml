@@ -1,0 +1,64 @@
+# Prometheus: recolecta métricas cada 10 s y evalúa las reglas de alerta de alertas.yml.
+global:
+  scrape_interval: 10s
+  scrape_timeout: 5s
+  evaluation_interval: 10s
+  external_labels:
+    proyecto: inventario-sedes
+
+rule_files:
+  - /etc/prometheus/alertas.yml
+
+scrape_configs:
+  # API Spring Boot: métricas HTTP, JVM y del pool de conexiones expuestas por el agente de OpenTelemetry.
+  - job_name: inventario-api
+    static_configs:
+      - targets: ["backend:9464"]
+        labels:
+          servicio: backend
+
+  - job_name: mysql
+    static_configs:
+      - targets: ["mysqld-exporter:9104"]
+        labels:
+          servicio: mysql
+
+  - job_name: nginx
+    static_configs:
+      - targets: ["nginx-exporter:9113"]
+        labels:
+          servicio: frontend
+
+  # Caché Redis: el exportador se declara junto a Redis en compose.yaml (numeral 14). Se descubre por DNS,
+  # de modo que si Redis no está desplegado no aparece ningún objetivo ni se dispara una alerta falsa.
+  - job_name: redis
+    dns_sd_configs:
+      - names: ["redis-exporter"]
+        type: A
+        port: 9121
+        refresh_interval: 30s
+    relabel_configs:
+      - target_label: servicio
+        replacement: redis
+
+  # La propia pila de observabilidad.
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          servicio: prometheus
+  - job_name: loki
+    static_configs:
+      - targets: ["loki:3100"]
+        labels:
+          servicio: loki
+  - job_name: tempo
+    static_configs:
+      - targets: ["tempo:3200"]
+        labels:
+          servicio: tempo
+  - job_name: grafana
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels:
+          servicio: grafana

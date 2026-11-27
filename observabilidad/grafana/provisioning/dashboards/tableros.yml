@@ -1,0 +1,14 @@
+# Carga los tableros JSON de /etc/grafana/dashboards en la carpeta "Inventario por sede".
+apiVersion: 1
+
+providers:
+  - name: inventario
+    orgId: 1
+    folder: Inventario por sede
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false
